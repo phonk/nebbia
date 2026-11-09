@@ -1,6 +1,6 @@
 # nebbia
 
-*neverending dub techno*
+*never-ending dub techno mix*
 
 A dub techno mix that is generated live in your browser and never plays the same way twice. Nothing is recorded: every kick, chord and echo is synthesised as you listen. One HTML file, no samples, no dependencies, no install.
 

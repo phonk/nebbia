@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="nebbia: neverending dub techno. A mix generated live in your browser that never plays the same way twice.">
+<meta name="description" content="nebbia: a never-ending dub techno mix, generated live in your browser, that never plays the same way twice.">
 <style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
 <meta name="claude:viewport-fit-sides" content="cover">
 <title>nebbia</title>
@@ -56,7 +56,7 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
   <header>
     <div class="titleblock">
       <h1>nebbia</h1>
-      <span class="tag">neverending dub techno</span>
+      <span class="tag">never-ending dub techno mix</span>
     </div>
     <div class="side">
       <span id="clock" hidden>00:00:00</span>
@@ -462,7 +462,7 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
     if (!('mediaSession' in navigator)) return;
     try {
       if (on) {
-        navigator.mediaSession.metadata = new MediaMetadata({ title: 'nebbia', artist: 'neverending dub techno' });
+        navigator.mediaSession.metadata = new MediaMetadata({ title: 'nebbia', artist: 'never-ending dub techno mix' });
         navigator.mediaSession.setActionHandler('play', () => { if (!playing) start(); });
         navigator.mediaSession.setActionHandler('pause', () => { if (playing) stop(); });
         navigator.mediaSession.setActionHandler('stop', () => { if (playing) stop(); });
