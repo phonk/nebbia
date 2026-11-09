@@ -26,6 +26,11 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
 .titleblock{display:flex;flex-direction:column;gap:2px}
 .tag{font-size:.78rem;color:var(--mute);letter-spacing:.02em}
 #clock{color:var(--mute);font-size:.95rem}
+.side{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+#sync{color:var(--mute);font-size:.78rem;letter-spacing:.02em;padding:4px 0}
+#sync:hover{color:var(--ink)}
+#sync.on{color:var(--amber)}
+#sync:focus-visible{outline:1px solid var(--amber);outline-offset:3px}
 
 .stage{display:block;width:100%;max-width:min(100%,58vh);aspect-ratio:1;margin:0 auto;position:relative;border-radius:50%;
   -webkit-tap-highlight-color:transparent}
@@ -51,7 +56,10 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
       <h1>nebbia</h1>
       <span class="tag">neverending dub techno</span>
     </div>
-    <span id="clock" hidden>00:00:00</span>
+    <div class="side">
+      <span id="clock" hidden>00:00:00</span>
+      <button id="sync" type="button" aria-label="MIDI clock sync: off">sync off</button>
+    </div>
   </header>
 
   <button class="stage" id="toggle" type="button" aria-pressed="false" aria-label="Start">
@@ -80,8 +88,7 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
   const KEYS = ['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'];
   const CHORDS = [[0, 3, 7, 10], [0, 3, 7, 10, 14], [0, 7, 10, 15], [0, 5, 7, 10], [0, 3, 10, 14], [0, 7, 15, 17], [0, 3, 7, 14]];
   const BASS_PATTERNS = [[2, 6, 10, 14], [3, 6, 11, 14], [2, 7, 10], [6, 14], [2, 3, 10, 11], [3, 10], [2, 6, 11]];
-  const PROGS = [[0], [0], [0], [0, 0, 0, -2], [0, 3], [0, 5], [0, 0, -2, -2], [0, -5]];
-
+  
   let ac = null, mix, master, noiseBuf, irBuf, crackleBuf;
   let decks = [], cur = 0, curL = 96, curT = 16, trackNo = 0;
   let step = 0, nextTime = 0, baseBpm = 118, t0 = 0, bpmNow = 118;
@@ -89,7 +96,12 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
   const events = [];
 
   /* ---------- sound sources ---------- */
-  let bed = null;
+  let bed = null, tape = null;
+  function tanhCurve(k, out) {
+    const c = new Float32Array(1025);
+    for (let i = 0; i < 1025; i++) c[i] = Math.tanh((i / 512 - 1) * k) * out;
+    return c;
+  }
   function makeNoise(seconds) {
     const b = ac.createBuffer(1, ac.sampleRate * seconds, ac.sampleRate);
     const d = b.getChannelData(0);
@@ -137,7 +149,21 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
       const dc = new Float32Array(1025);
       for (let i = 0; i < 1025; i++) { const x = (i / 512 - 1) * 3; dc[i] = Math.tanh(x + 0.18 * x * x) ; }
       this.dirt.curve = dc; this.dirt.oversample = '2x';
-      this.drive.connect(this.dirt); this.dirt.connect(this.dirtOut); this.dirtOut.connect(this.chordBus);
+      this.drive.connect(this.dirt); this.dirt.connect(this.dirtOut);
+      const bq = (type, f, q) => { const n = ac.createBiquadFilter(); n.type = type; n.frequency.value = f; n.Q.value = q; return n; };
+      const lfo = (f, depth, target) => { const o = ac.createOscillator(); o.frequency.value = f; const og = g(depth); o.connect(og); og.connect(target); o.start(); };
+      this.fxIn = g(1); { const dc = bq('highpass', 35, 0.5); this.dirtOut.connect(dc); dc.connect(this.fxIn); }
+      /* tape warble: wow, slow drift and flutter on the chords */
+      this.warb = ac.createDelay(0.2); this.warb.delayTime.value = 0.03;
+      this.warbDepth = g(1); this.warbDepth.connect(this.warb.delayTime);
+      lfo(rnd(0.35, 0.6), 0.0028, this.warbDepth); lfo(rnd(0.07, 0.13), 0.006, this.warbDepth); lfo(rnd(6, 8.5), 0.00006, this.warbDepth);
+      this.fxIn.connect(this.warb);
+      /* phaser */
+      const phDepth = g(600); { const o = ac.createOscillator(); o.frequency.value = rnd(0.05, 0.2); o.connect(phDepth); o.start(); }
+      let node = this.warb;
+      for (let k = 0; k < 4; k++) { const ap = bq('allpass', 900 + k * 500, 0.7); phDepth.connect(ap.frequency); node.connect(ap); node = ap; }
+      this.pre2 = g(1); this.warb.connect(this.pre2); { const pm = g(0.6); node.connect(pm); pm.connect(this.pre2); }
+      this.pre2.connect(this.chordBus);
 
       this.delay = ac.createDelay(2.5);
       this.delaySend = g(0.5);
@@ -164,6 +190,7 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
       this.chordBus.connect(this.revSend); this.delay.connect(this.revSend);
       this.revSend.connect(this.rev); this.rev.connect(this.revOut); this.revOut.connect(this.pre);
 
+      lfo(0.23, 0.0018, this.delay.delayTime);   /* tape echo wobble */
       this.track = null; this.pad = null;
     }
 
@@ -183,6 +210,7 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
       this.delaySend.gain.setValueAtTime(tr.delaySend, t);
       this.revSend.gain.setValueAtTime(tr.revSend, t);
       this.drive.gain.setValueAtTime(tr.drive, t);
+      this.warbDepth.gain.setValueAtTime(tr.warble, t);
       this.startPad(t);
     }
 
@@ -201,6 +229,10 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
       });
       f.connect(gain); gain.connect(this.duck); gain.connect(this.revSend);
       this.pad = { gain, oscs };
+    }
+    /* once a bar the echo's tone moves a little */
+    morph(t, tr) {
+      this.fbLP.frequency.setTargetAtTime(clamp(tr.fbTone * Math.pow(2, 1.1 * Math.sin(t / tr.p2 + 1)), 600, 4500), t, 1);
     }
     stopPad(t) {
       if (!this.pad) return;
@@ -229,6 +261,7 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
       const low = bar >= this.kickFrom && bar < this.kickUntil && !tr.breaks.has(rb);
 
       if (s === 0) {
+        this.morph(t, tr);
         this.delay.delayTime.setTargetAtTime(tr.delaySteps * sd, t, 0.6);
         if (!this.dubOut) this.fb.gain.setTargetAtTime(clamp(tr.fb + 0.07 * Math.sin(t / tr.fbPeriod), 0.3, 0.7), t, 1);
         if (rb > 0 && rb % 16 === 0) mutate(tr.stab[chance(0.5) ? 0 : 1]);
@@ -261,7 +294,7 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
     }
 
     bass(t, sd, tr) {
-      const iv = chance(0.82) ? 0 : pick([7, 10, -2, 12]);
+      const iv = chance(0.9) ? 0 : 12;
       const f = mtof(tr.bassNote + iv);
       const o = ac.createOscillator(), o2 = ac.createOscillator(), g2 = ac.createGain();
       const lp = ac.createBiquadFilter(), g = ac.createGain();
@@ -296,7 +329,7 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
     stab(t, vel, shift, tr, s) {
       const drift = 1.2 * Math.sin(t / tr.p1 + tr.ph) + 0.6 * Math.sin(t / tr.p2);
       const cut = clamp(tr.cut * Math.pow(2, drift) * rnd(0.82, 1.2), 140, 5000);
-      const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.Q.value = tr.q;
+      const f = ac.createBiquadFilter(); f.type = tr.stabType; f.Q.value = tr.stabType === 'bandpass' ? tr.q * 0.4 : tr.q;
       f.frequency.setValueAtTime(Math.min(cut + tr.envAmt * vel, 9000), t);
       f.frequency.exponentialRampToValueAtTime(cut, t + tr.fDecay);
       const g = ac.createGain();
@@ -347,7 +380,12 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
     return {
       root, chord: pick(CHORDS), base: root <= 6 ? 48 + root : 36 + root,
       bassNote: 31 + ((root + 5) % 12),
-      stab: [b1, b2], prog: pick(PROGS), progLen: pick([4, 8]),
+      stab: [b1, b2], /* every 8 or 16 bars the chord goes to the fifth for a bar (sometimes two), then comes home */
+      prog: (() => {
+        const fifth = (root <= 6 ? 48 + root : 36 + root) >= 50 ? -5 : 7, n = pick([8, 16, 16]);
+        const a = new Array(n).fill(0); a[n - 1] = fifth; if (n === 16 && chance(0.5)) a[n - 2] = fifth;
+        return a;
+      })(), progLen: 1,
       wave: chance(0.75) ? 'sawtooth' : 'square', detune: rnd(4, 14),
       cut: rnd(280, 800), envAmt: rnd(700, 3200), q: rnd(2, 8),
       decay: long ? rnd(0.45, 0.9) : rnd(0.09, 0.3), fDecay: long ? rnd(0.25, 0.6) : rnd(0.06, 0.25),
@@ -357,7 +395,9 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
       kickTune: rnd(45, 52), kickDecay: rnd(0.26, 0.42), pump: rnd(0.07, 0.13),
       bassSteps: pick(BASS_PATTERNS), bassCut: rnd(170, 320), bassLen: rnd(1.1, 1.9),
       openHat: chance(0.8), hatMask, hatLevel: rnd(0.05, 0.09), hatDecay: rnd(0.025, 0.06), hatTone: rnd(6500, 9000),
-      clap: chance(0.45), drive: rnd(2.5, 7), grit: rnd(0.15, 0.5), padLevel: chance(0.65) ? rnd(0.02, 0.045) : 0, padCut: rnd(350, 700),
+      clap: chance(0.45), drive: rnd(2.5, 7), grit: rnd(0.15, 0.5),
+      stabType: chance(0.7) ? 'lowpass' : 'bandpass',
+      warble: rnd(0.6, 1.6), padLevel: chance(0.65) ? rnd(0.02, 0.045) : 0, padCut: rnd(350, 700),
       breaks, hatsOff
     };
   }
@@ -382,6 +422,7 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
     const other = decks[1 - cur];
     if (rel === curL - curT) other.load(newTrack(c.track.root, 112, 32), bar, t, curT / 2, barDur, false);
     if (rel === curL - curT / 2) c.beginOut(bar, t, curT / 2, barDur);
+    if (tape && chance(0.07)) { const x = t + rnd(0, barDur); tape.gain.setTargetAtTime(0.55, x, 0.01); tape.gain.setTargetAtTime(1, x + 0.09, 0.05); }
     const key = KEYS[c.track.root] + ' min' + (other.track ? ' → ' + KEYS[other.track.root] + ' min' : '');
     events.push({ t, kind: 'bar', bpm: bpmNow, key, track: trackNo, rel, L: curL, dur: barDur, gbar: bar });
   }
@@ -393,8 +434,10 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
     while (nextTime < now + ahead) {
       const el = nextTime - t0;
       bpmNow = baseBpm + 3 * Math.sin(el / 143) + 1.5 * Math.sin(el / 60);
+      if (sync === 'in' && extBpm) bpmNow = extBpm;
       const sd = 60 / bpmNow / 4, bar = Math.floor(step / 16), s = step % 16;
       if (s === 0) onBar(bar, nextTime, sd * 16);
+      if (sync === 'out') clockOut(nextTime, sd, s);
       decks[0].playStep(bar, s, nextTime, sd);
       decks[1].playStep(bar, s, nextTime, sd);
       nextTime += sd; step++;
@@ -435,6 +478,62 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
   }
   document.addEventListener('visibilitychange', onReturn);
   window.addEventListener('pageshow', onReturn); window.addEventListener('focus', onReturn);
+  /* ---------- MIDI clock: send it (out) or follow it (in) ---------- */
+  let midi = null, sync = 'off', extBpm = 0, outRunning = false;
+  const ext = { n: 0, last: 0, per: 0, base: 0 };
+  const stamp = () => { try { const o = ac.getOutputTimestamp(); if (o && o.performanceTime > 0) return o; } catch (e) {} return { contextTime: ac.currentTime, performanceTime: performance.now() }; };
+  const toPerf = t => { const o = stamp(); return o.performanceTime + (t - o.contextTime) * 1000; };
+  const toAudio = ms => { const o = stamp(); return o.contextTime + (ms - o.performanceTime) / 1000; };
+  function sendAll(bytes, when) {
+    if (!midi) return;
+    midi.outputs.forEach(o => { try { when ? o.send(bytes, when) : o.send(bytes); } catch (e) {} });
+  }
+  /* 24 clocks per quarter note: six for every sixteenth, starting on a bar line */
+  function clockOut(t, sd, s) {
+    if (!outRunning) { if (s !== 0) return; outRunning = true; sendAll([0xFA], toPerf(t) - 1); }
+    for (let k = 0; k < 6; k++) sendAll([0xF8], toPerf(t + k * sd / 6));
+  }
+  function clockStop() { if (outRunning) { outRunning = false; sendAll([0xFC]); } }
+  function onMidi(e) {
+    if (sync !== 'in' || !e.data) return;
+    const b = e.data[0];
+    if (b === 0xFA) { ext.n = 0; ext.last = 0; if (!playing) { start(); ext.base = 0; } else ext.base = Math.ceil(step / 16) * 16; return; }
+    if (b === 0xFB) { if (!playing) { start(); ext.n = 0; ext.base = 0; } return; }
+    if (b === 0xFC) { if (playing) stop(); return; }
+    if (b !== 0xF8) return;
+    const now = e.timeStamp || performance.now();
+    if (ext.last) { const d = now - ext.last; if (d > 2 && d < 250) ext.per = ext.per ? ext.per + (d - ext.per) * 0.08 : d; }
+    ext.last = now;
+    if (ext.per) extBpm = clamp(60000 / (ext.per * 24), 60, 200);
+    if (playing && ac && ac.state === 'running' && ext.per && ext.n % 6 === 0) {
+      const sd = ext.per * 6 / 1000, ta = toAudio(now), n16 = ext.n / 6;
+      let want = ta + (step - ext.base - n16) * sd, err = want - nextTime;
+      if (Math.abs(err) > 0.06) {   /* far off: line up on the nearest bar, never skipping a step */
+        ext.base += 16 * Math.round(err / (16 * sd));
+        want = ta + (step - ext.base - n16) * sd;
+        while (want < ac.currentTime + 0.03) { ext.base -= 16; want += 16 * sd; }
+        nextTime = want;
+      } else nextTime += err * 0.2;
+    }
+    ext.n++;
+  }
+  function wire() { if (midi) midi.inputs.forEach(i => { i.onmidimessage = onMidi; }); }
+  function showSync(txt) {
+    const b = $('sync'); b.textContent = txt || ('sync ' + sync); b.classList.toggle('on', sync !== 'off');
+    b.setAttribute('aria-label', 'MIDI clock sync: ' + sync);
+  }
+  async function nextSync() {
+    const to = sync === 'off' ? 'out' : sync === 'out' ? 'in' : 'off';
+    if (to !== 'off' && !midi) {
+      try { midi = await navigator.requestMIDIAccess(); midi.onstatechange = wire; }
+      catch (e) { midi = null; showSync('no midi here'); setTimeout(() => showSync(), 1800); return; }
+    }
+    if (sync === 'out') clockStop();
+    sync = to; extBpm = 0; ext.n = 0; ext.last = 0; ext.per = 0; ext.base = step;
+    wire(); showSync();
+  }
+  $('sync').addEventListener('click', nextSync);
+
   function start() {
     try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
     ac = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'playback' });
@@ -450,7 +549,16 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
     const comp = ac.createDynamicsCompressor();
     comp.threshold.value = -14; comp.knee.value = 12; comp.ratio.value = 4; comp.attack.value = 0.01; comp.release.value = 0.25;
     mix = ac.createGain(); mix.gain.value = 0.8;
-    mix.connect(comp); comp.connect(master); master.connect(ac.destination);
+    /* master tape: wow and flutter, saturation, a duller top, a little head bump */
+    tape = ac.createGain();
+    const td = ac.createDelay(0.2); td.delayTime.value = 0.03;
+    [[0.45, 0.0009], [0.11, 0.002], [7.3, 0.00005]].forEach(([f, d]) => {
+      const o = ac.createOscillator(), og = ac.createGain(); o.frequency.value = f; og.gain.value = d; o.connect(og); og.connect(td.delayTime); o.start();
+    });
+    const ts = ac.createWaveShaper(); ts.curve = tanhCurve(1.6, 0.72); ts.oversample = '2x';
+    const tl = ac.createBiquadFilter(); tl.type = 'lowpass'; tl.frequency.value = 9500; tl.Q.value = -3;
+    const tb = ac.createBiquadFilter(); tb.type = 'peaking'; tb.frequency.value = 90; tb.Q.value = 0.9; tb.gain.value = 2.5;
+    mix.connect(tape); tape.connect(td); td.connect(ts); ts.connect(tl); const th = ac.createBiquadFilter(); th.type = 'highpass'; th.frequency.value = 24; th.Q.value = 0.5; tl.connect(tb); tb.connect(th); th.connect(comp); comp.connect(master); master.connect(ac.destination);
     master.gain.setTargetAtTime(0.9, ac.currentTime, 0.15);
 
     bed = ac.createGain(); bed.connect(mix);
@@ -460,7 +568,7 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
     rum.connect(rf); rf.connect(rg); rg.connect(bed); rum.start(0, 0.7);
     const hiss = ac.createBufferSource(); hiss.buffer = noiseBuf; hiss.loop = true;
     const hf = ac.createBiquadFilter(); hf.type = 'lowpass'; hf.frequency.value = 4200;
-    const hg = ac.createGain(); hg.gain.value = 0.032;
+    const hg = ac.createGain(); hg.gain.value = 0.045;
     const hl = ac.createOscillator(); hl.frequency.value = 0.06;
     const hlg = ac.createGain(); hlg.gain.value = 0.012; hl.connect(hlg); hlg.connect(hg.gain); hl.start();
     hiss.connect(hf); hf.connect(hg); hg.connect(bed); hiss.start();
@@ -484,6 +592,7 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
   }
   function stop() {
     playing = false;
+    clockStop();
     if (worker) { worker.postMessage('halt'); worker.terminate(); worker = null; }
     clearInterval(fallbackTimer);
     const old = ac; ac = null;
