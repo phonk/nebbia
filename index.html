@@ -18,7 +18,8 @@
 html,body{background:var(--bg)}
 body{color:var(--ink);font-family:var(--font);font-weight:400;font-size:16px;line-height:1.4;font-variant-numeric:tabular-nums;
   padding-left:max(18px,env(safe-area-inset-left,0px));padding-right:max(18px,env(safe-area-inset-right,0px));padding-block:16px 28px}
-.wrap{max-width:540px;margin:0 auto;display:flex;flex-direction:column;gap:22px}
+.wrap{max-width:540px;margin:0 auto;display:flex;flex-direction:column;gap:22px;position:relative;z-index:1}
+#bench{position:fixed;left:0;bottom:0;width:100%;pointer-events:none;z-index:0;display:block}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
 
 header{display:flex;justify-content:space-between;align-items:baseline}
@@ -50,6 +51,7 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
 
 </head>
 <body>
+<canvas id="bench" aria-hidden="true"></canvas>
 <div class="wrap">
   <header>
     <div class="titleblock">
@@ -704,6 +706,96 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
     g.globalAlpha = 1;
     if (playing || rings.length || Math.abs(glow - glowT) > 0.01) requestAnimationFrame(draw);
   }
+  /* ---------- behind everything: a bench with a tape machine and a mixer, sketched loosely in pen ---------- */
+  const bc = $('bench'), b2 = bc.getContext('2d'), MUTE = col('mute');
+  let bs = 1, bw = 0, bh = 0, reel = 0, boil = 1, bticks = 0, rs = 1;
+  const rr = () => { rs |= 0; rs = rs + 0x6D2B79F5 | 0; let t = Math.imul(rs ^ rs >>> 15, 1 | rs); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+  const jt = a => (rr() - 0.5) * 2 * a;
+  /* a pen line: drawn twice, never quite straight, overshooting its ends */
+  function pl(x1, y1, x2, y2, wob) {
+    const w = wob == null ? 2.2 : wob, len = Math.hypot(x2 - x1, y2 - y1) || 1, ux = (x2 - x1) / len, uy = (y2 - y1) / len;
+    for (let p = 0; p < 2; p++) {
+      const o1 = rr() * 5 - 1, o2 = rr() * 5 - 1;
+      const ax = x1 - ux * o1 + jt(w), ay = y1 - uy * o1 + jt(w), bx = x2 + ux * o2 + jt(w), by = y2 + uy * o2 + jt(w);
+      const mx = (ax + bx) / 2 - uy * jt(w * 1.8 + len * 0.012), my = (ay + by) / 2 + ux * jt(w * 1.8 + len * 0.012);
+      b2.beginPath(); b2.moveTo(ax, ay); b2.quadraticCurveTo(mx, my, bx, by); b2.stroke();
+    }
+  }
+  /* a pen circle: a loop that does not close where it started */
+  function pc(cx, cy, r, passes) {
+    for (let p = 0; p < (passes || 2); p++) {
+      const a0 = rr() * 6.28, turn = 6.28 * (1.04 + rr() * 0.14), ex = 1 + jt(0.06), ox = jt(1.6), oy = jt(1.6), n = 26;
+      b2.beginPath();
+      for (let i = 0; i <= n; i++) {
+        const a = a0 + turn * i / n, rad = r * (1 + 0.03 * Math.sin(a * 2 + p) + (i / n) * jt(0.03));
+        const x = cx + ox + Math.cos(a) * rad * ex, y = cy + oy + Math.sin(a) * rad / ex;
+        i ? b2.lineTo(x, y) : b2.moveTo(x, y);
+      }
+      b2.stroke();
+    }
+  }
+  function box(x, y, w, h) { pl(x, y, x + w, y); pl(x + w, y, x + w, y + h); pl(x + w, y + h, x, y + h); pl(x, y + h, x, y); }
+  function curve(x1, y1, c1x, c1y, c2x, c2y, x2, y2) {
+    for (let p = 0; p < 2; p++) {
+      b2.beginPath(); b2.moveTo(x1 + jt(2), y1 + jt(2));
+      b2.bezierCurveTo(c1x + jt(7), c1y + jt(7), c2x + jt(7), c2y + jt(7), x2 + jt(2), y2 + jt(2)); b2.stroke();
+    }
+  }
+  function sketch() {
+    if (!bw) return;
+    rs = boil * 7919;
+    b2.setTransform(1, 0, 0, 1, 0, 0); b2.clearRect(0, 0, bc.width, bc.height);
+    const dpr = bc.width / bw;
+    b2.setTransform(dpr * bs, 0, 0, dpr * bs, dpr * (bw - 900 * bs) / 2, dpr * (bh - 300 * bs));
+    b2.strokeStyle = MUTE; b2.globalAlpha = 0.3; b2.lineWidth = 1.15 / bs; b2.lineCap = 'round'; b2.lineJoin = 'round';
+    /* the bench */
+    pl(-200, 252, 1100, 250, 2.5); pl(-120, 262, 760, 263, 2.5);
+    /* mug, with steam */
+    box(42, 208, 40, 42); curve(82, 216, 102, 214, 102, 240, 82, 238);
+    curve(54, 198, 46, 186, 66, 180, 58, 166); curve(70, 196, 64, 186, 80, 178, 72, 168);
+    /* tape machine */
+    box(122, 52, 300, 198);
+    pl(124, 188, 420, 190);
+    const reels = [[200, 122, 40], [344, 122, 27]];
+    for (const [x, y, wound] of reels) {
+      pc(x, y, 54, 2); pc(x, y, wound, 1); pc(x, y, 12, 2);
+      const keep = rs; for (let k = 0; k < 3; k++) { const a = reel + k * 2.094; pl(x + Math.cos(a) * 14, y + Math.sin(a) * 14, x + Math.cos(a) * 50, y + Math.sin(a) * 50, 1.2); }
+      rs = keep + 31;
+    }
+    pl(160, 150, 238, 204, 1.5); pl(302, 204, 364, 143, 1.5); box(240, 198, 62, 16); pc(228, 206, 5, 1); pc(314, 206, 5, 1);
+    const needle = -0.6 + 1.1 * glow + 0.5 * pulse;
+    for (const x of [146, 352]) { box(x, 214, 46, 26); pl(x + 23, 238, x + 23 + Math.sin(needle + jt(0.15)) * 20, 238 - Math.cos(needle) * 20, 0.8); }
+    pc(232, 228, 7, 2); pc(272, 228, 7, 2); pc(312, 228, 7, 2);
+    /* mixer, seen a little from above */
+    pl(506, 168, 806, 166); pl(806, 166, 836, 250); pl(506, 168, 474, 250);
+    for (let i = 0; i < 6; i++) {
+      const x = 524 + i * 42, lean = (i - 2.5) * 2.2;
+      pc(x, 184, 6, 1); pc(x - lean * 0.3, 202, 6, 1);
+      pl(x - lean * 0.6, 214, x - lean, 244, 0.8);
+      const fy = 218 + rr() * 20; box(x - lean * 0.8 - 7, fy, 14, 6);
+      if (i) pl(x - 21, 172, x - 21 - lean - 3, 248, 1);
+    }
+    pc(786, 190, 10, 2); pc(792, 220, 10, 2);
+    /* cables */
+    curve(422, 226, 446, 262, 452, 236, 478, 240);
+    curve(830, 236, 872, 232, 878, 262, 884, 300);
+    curve(560, 166, 566, 120, 640, 150, 700, 96); curve(700, 96, 760, 50, 850, 120, 900, 60);
+  }
+  function benchSize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    bw = window.innerWidth; bs = Math.min(bw * 0.98 / 900, window.innerHeight * 0.45 / 300, 1.3); bh = Math.ceil(300 * bs);
+    bc.style.height = bh + 'px'; bc.width = Math.round(bw * dpr); bc.height = Math.round(bh * dpr);
+    sketch();
+  }
+  window.addEventListener('resize', benchSize);
+  benchSize();
+  if (!still) setInterval(() => {
+    if (document.hidden) return;
+    bticks++; if (bticks % 5 === 0) boil++;          /* the line "boils": it is redrawn a little differently now and then */
+    if (playing) reel += 0.22;
+    if (playing || bticks % 5 === 0) sketch();
+  }, 170);
+
   window.addEventListener('resize', resize);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(resize);
   resize();
