@@ -36,4 +36,4 @@ Under the dial you read the key, the track number, the bar and the tempo. The cl
 ## Notes
 
 - It can run for as long as you leave it open. The combinations never run out, though after a few hours you will recognise its habits.
-- On a phone the browser may stop the sound when the screen turns off.
+- On a phone it keeps playing with the screen off, and you can stop it from the lock screen. If the phone cuts the audio anyway, the dial goes back to *tap*: one tap starts a fresh mix.

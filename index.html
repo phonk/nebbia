@@ -386,7 +386,7 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
     events.push({ t, kind: 'bar', bpm: bpmNow, key, track: trackNo, rel, L: curL, dur: barDur, gbar: bar });
   }
   function tick() {
-    if (!playing || !ac) return;
+    if (!playing || !ac || ac.state !== 'running') return;
     const now = ac.currentTime;
     if (nextTime < now) nextTime = now + 0.05;
     const ahead = document.hidden ? 1.8 : 0.3;
@@ -403,23 +403,48 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
   }
 
   /* ---------- start / stop ---------- */
+  /* a silent media element keeps the audio session alive on phones, so nebbia goes on with the screen off */
   function silentWav() {
-    const n = 4000, b = new Uint8Array(44 + n), v = new DataView(b.buffer);
-    const w = (o, s) => { for (let i = 0; i < s.length; i++) b[o + i] = s.charCodeAt(i); };
-    w(0, 'RIFF'); v.setUint32(4, 36 + n, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true);
-    v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, 8000, true); v.setUint32(28, 8000, true);
-    v.setUint16(32, 1, true); v.setUint16(34, 8, true); w(36, 'data'); v.setUint32(40, n, true);
-    b.fill(128, 44);
-    let s = ''; for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
-    return 'data:audio/wav;base64,' + btoa(s);
+    const n = 4410, b = new Uint8Array(44 + n * 2), v = new DataView(b.buffer);
+    const w = (o, t) => { for (let i = 0; i < t.length; i++) b[o + i] = t.charCodeAt(i); };
+    w(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); w(8, 'WAVEfmt '); v.setUint32(16, 16, true);
+    v.setUint16(20, 1, true); v.setUint16(22, 1, true); v.setUint32(24, 44100, true); v.setUint32(28, 88200, true);
+    v.setUint16(32, 2, true); v.setUint16(34, 16, true); w(36, 'data'); v.setUint32(40, n * 2, true);
+    let t = ''; for (let i = 0; i < b.length; i++) t += String.fromCharCode(b[i]);
+    return 'data:audio/wav;base64,' + btoa(t);
   }
+  function media(on) {
+    if (!('mediaSession' in navigator)) return;
+    try {
+      if (on) {
+        navigator.mediaSession.metadata = new MediaMetadata({ title: 'nebbia', artist: 'neverending dub techno' });
+        navigator.mediaSession.setActionHandler('play', () => { if (!playing) start(); });
+        navigator.mediaSession.setActionHandler('pause', () => { if (playing) stop(); });
+        navigator.mediaSession.setActionHandler('stop', () => { if (playing) stop(); });
+      }
+      navigator.mediaSession.playbackState = on ? 'playing' : 'paused';
+    } catch (e) {}
+  }
+  /* back from a locked screen: if the sound came back, carry on; if the audio is stuck, stop, so one tap builds a fresh mix */
+  const resumeSoon = (c, ms) => Promise.race([c.resume().then(() => true, () => false), new Promise(r => setTimeout(() => r(false), ms))]);
+  async function onReturn() {
+    if (document.hidden || !playing || !ac || ac.state === 'running') return;
+    const c = ac;
+    if (await resumeSoon(c, 400) && c.state === 'running') return;
+    if (playing && ac === c) stop();
+  }
+  document.addEventListener('visibilitychange', onReturn);
+  window.addEventListener('pageshow', onReturn); window.addEventListener('focus', onReturn);
   function start() {
+    try { if (navigator.audioSession) navigator.audioSession.type = 'playback'; } catch (e) {}
     ac = new (window.AudioContext || window.webkitAudioContext)({ latencyHint: 'playback' });
     ac.resume();
-    try {   // lets iOS play with the silent switch on
+    try {
       silentEl = silentEl || new Audio(silentWav());
-      silentEl.loop = true; silentEl.play().catch(() => {});
+      silentEl.loop = true; silentEl.setAttribute('playsinline', ''); silentEl.volume = 0.01;
+      silentEl.play().catch(() => {});
     } catch (e) {}
+    media(true);
     noiseBuf = makeNoise(2); crackleBuf = makeCrackle(5); irBuf = makeImpulse(4.5);
     master = ac.createGain(); master.gain.value = 0;
     const comp = ac.createDynamicsCompressor();
@@ -467,6 +492,7 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
       setTimeout(() => old.close().catch(() => {}), 2200);
     }
     if (silentEl) silentEl.pause();
+    media(false);
     events.length = 0;
     ui(false);
   }
