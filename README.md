@@ -25,20 +25,6 @@ Under the dial you read the key, the track number, the bar and the tempo. The cl
 
 Behind it all, at the bottom of the page, there is a bench sketched loosely in pen: a reel-to-reel tape machine, a mixer, a mug, a few cables. The reels turn while the music plays, the VU needles follow the kick and the filter, and the line is redrawn a little differently every second or so.
 
-## How it works
-
-**Tracks.** Each track is drawn at random: a key, one minor chord voicing, a two-bar stab pattern, a bass line, hats, sometimes a clap and a pad, and its own sound (filter, decay, drive, grit, echo time and feedback). A track lasts 64 to 112 bars.
-
-**The mix.** Before a track ends, the next one comes in on the other deck, in a related key (same, a fourth or fifth away, or close by). First its chords fade in through a filter that slowly opens; halfway through, kick and bass swap from the old track to the new one; then the old track sinks into its own echo and disappears.
-
-**Movement inside a track.** The chord stays put: every 8 or 16 bars the stabs go to the fifth for a bar or two and come home, while the bass holds the root. The chord filter drifts slowly on two long cycles. One hit of the stab pattern moves every 16 bars. Now and then the kick drops out for a few bars, or the hats leave. The echo feedback wanders.
-
-**Tempo.** It drifts slowly around 114 to 120 bpm, and the echo follows it.
-
-**Tone.** Chords are detuned saws with a layer of noise, pushed through a resonant filter (low-pass, on some tracks band-pass) and an asymmetric overdrive, then a slow phaser, a filtered, saturated echo and a long dark reverb. Under everything there is a bed of hiss, crackle and low rumble that pumps with the kick.
-
-**Tape.** The chords warble with wow, slow drift and flutter, and the echo wobbles on its own. The whole mix then runs through a tape stage: a lighter wow and flutter, saturation, a duller top, a small bump in the lows and the odd dropout.
-
 ## MIDI clock
 
 Tap **sync** to move between *off*, *out* and *in*.
