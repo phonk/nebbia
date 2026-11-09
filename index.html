@@ -252,7 +252,7 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
       o.linearRampToValueAtTime(0.0001, t + hs + 2 * barDur);
       f.cancelScheduledValues(t); f.setValueAtTime(18000, t);
       f.exponentialRampToValueAtTime(600, t + hs);
-      this.fb.gain.setTargetAtTime(0.74, t, hs / 3);
+      this.fb.gain.setTargetAtTime(0.62, t, hs / 3);
       this.stopPad(t + hs * 0.5);
     }
     end(t) { this.track = null; this.stopPad(t); }
@@ -265,7 +265,7 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
       if (s === 0) {
         this.morph(t, tr);
         this.delay.delayTime.setTargetAtTime(tr.delaySteps * sd, t, 0.6);
-        if (!this.dubOut) this.fb.gain.setTargetAtTime(clamp(tr.fb + 0.07 * Math.sin(t / tr.fbPeriod), 0.3, 0.7), t, 1);
+        if (!this.dubOut) this.fb.gain.setTargetAtTime(clamp(tr.fb + 0.06 * Math.sin(t / tr.fbPeriod), 0.3, 0.58), t, 1);
         if (rb > 0 && rb % 16 === 0) mutate(tr.stab[chance(0.5) ? 0 : 1]);
       }
       if (low && s % 4 === 0) this.kick(t, tr);
@@ -392,7 +392,7 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
       cut: rnd(280, 800), envAmt: rnd(700, 3200), q: rnd(2, 8),
       decay: long ? rnd(0.45, 0.9) : rnd(0.09, 0.3), fDecay: long ? rnd(0.25, 0.6) : rnd(0.06, 0.25),
       p1: rnd(6, 11), p2: rnd(15, 24), ph: rnd(0, 6.28),
-      delaySteps: pick([3, 3, 3, 2, 6]), fb: rnd(0.42, 0.62), fbPeriod: rnd(9, 17), fbTone: rnd(1400, 3200),
+      delaySteps: pick([3, 3, 3, 2, 6]), fb: rnd(0.36, 0.52), fbPeriod: rnd(9, 17), fbTone: rnd(1400, 3200),
       delaySend: rnd(0.4, 0.75), revSend: rnd(0.2, 0.45),
       kickTune: rnd(45, 52), kickDecay: rnd(0.26, 0.42), pump: rnd(0.07, 0.13),
       bassSteps: pick(BASS_PATTERNS), bassCut: rnd(170, 320), bassLen: rnd(1.1, 1.9),
