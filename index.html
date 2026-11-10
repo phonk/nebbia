@@ -741,6 +741,7 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
       b2.bezierCurveTo(c1x + jt(7), c1y + jt(7), c2x + jt(7), c2y + jt(7), x2 + jt(2), y2 + jt(2)); b2.stroke();
     }
   }
+  const pen = (c, a) => { b2.strokeStyle = c; b2.globalAlpha = a; };
   function sketch() {
     if (!bw) return;
     rs = boil * 7919;
@@ -752,19 +753,19 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
     pl(-200, 252, 1100, 250, 2.5); pl(-120, 262, 760, 263, 2.5);
     /* mug, with steam */
     box(42, 208, 40, 42); curve(82, 216, 102, 214, 102, 240, 82, 238);
-    curve(54, 198, 46, 186, 66, 180, 58, 166); curve(70, 196, 64, 186, 80, 178, 72, 168);
+    pen(WINE, 0.55); curve(54, 198, 46, 186, 66, 180, 58, 166); curve(70, 196, 64, 186, 80, 178, 72, 168); pen(MUTE, 0.3);
     /* tape machine */
     box(122, 52, 300, 198);
     pl(124, 188, 420, 190);
     const reels = [[200, 122, 40], [344, 122, 27]];
     for (const [x, y, wound] of reels) {
-      pc(x, y, 54, 2); pc(x, y, wound, 1); pc(x, y, 12, 2);
+      pc(x, y, 54, 2); pen(AMBER, 0.6); pc(x, y, wound, 2); pc(x, y, wound - 5, 1); pen(MUTE, 0.3); pc(x, y, 12, 2);
       const keep = rs; for (let k = 0; k < 3; k++) { const a = reel + k * 2.094; pl(x + Math.cos(a) * 14, y + Math.sin(a) * 14, x + Math.cos(a) * 50, y + Math.sin(a) * 50, 1.2); }
       rs = keep + 31;
     }
-    pl(160, 150, 238, 204, 1.5); pl(302, 204, 364, 143, 1.5); box(240, 198, 62, 16); pc(228, 206, 5, 1); pc(314, 206, 5, 1);
+    pen(AMBER, 0.6); pl(160, 150, 238, 204, 1.5); pl(302, 204, 364, 143, 1.5); pl(238, 205, 302, 205, 1); pen(MUTE, 0.3); box(240, 198, 62, 16); pc(228, 206, 5, 1); pc(314, 206, 5, 1);
     const needle = -0.6 + 1.1 * glow + 0.5 * pulse;
-    for (const x of [146, 352]) { box(x, 214, 46, 26); pl(x + 23, 238, x + 23 + Math.sin(needle + jt(0.15)) * 20, 238 - Math.cos(needle) * 20, 0.8); }
+    for (const x of [146, 352]) { box(x, 214, 46, 26); pen(NIGHT, 0.85); pl(x + 23, 238, x + 23 + Math.sin(needle + jt(0.15)) * 20, 238 - Math.cos(needle) * 20, 0.8); pen(MUTE, 0.3); }
     pc(232, 228, 7, 2); pc(272, 228, 7, 2); pc(312, 228, 7, 2);
     /* mixer, seen a little from above */
     pl(506, 168, 806, 166); pl(806, 166, 836, 250); pl(506, 168, 474, 250);

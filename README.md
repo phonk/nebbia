@@ -23,7 +23,7 @@ The small **sync** label at the top right is optional: it locks nebbia to your o
 
 Under the dial you read the key, the track number, the bar and the tempo. The clock at the top is how long the mix has been running.
 
-Behind it all, at the bottom of the page, there is a bench sketched loosely in pen: a reel-to-reel tape machine, a mixer, a mug, a few cables. The reels turn while the music plays, the VU needles follow the kick and the filter, and the line is redrawn a little differently every second or so.
+Behind it all, at the bottom of the page, there is a bench sketched loosely in pen: a reel-to-reel tape machine, a mixer, a mug, a few cables. The tape is amber, the VU needles blue, the steam from the mug pink. The reels turn while the music plays, the VU needles follow the kick and the filter, and the line is redrawn a little differently every second or so.
 
 ## MIDI clock
 
