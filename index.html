@@ -763,7 +763,7 @@ h1{font-weight:300;font-size:1.5rem;letter-spacing:-.01em;margin:0}
       const keep = rs; for (let k = 0; k < 3; k++) { const a = reel + k * 2.094; pl(x + Math.cos(a) * 14, y + Math.sin(a) * 14, x + Math.cos(a) * 50, y + Math.sin(a) * 50, 1.2); }
       rs = keep + 31;
     }
-    pen(AMBER, 0.6); pl(160, 150, 238, 204, 1.5); pl(302, 204, 364, 143, 1.5); pl(238, 205, 302, 205, 1); pen(MUTE, 0.3); box(240, 198, 62, 16); pc(228, 206, 5, 1); pc(314, 206, 5, 1);
+    pen(AMBER, 0.6); pl(175, 153, 238, 204, 1.2); pl(302, 204, 363, 141, 1.2); pl(238, 205, 302, 205, 1); pen(MUTE, 0.3); box(240, 198, 62, 16); pc(228, 206, 5, 1); pc(314, 206, 5, 1);
     const needle = -0.6 + 1.1 * glow + 0.5 * pulse;
     for (const x of [146, 352]) { box(x, 214, 46, 26); pen(NIGHT, 0.85); pl(x + 23, 238, x + 23 + Math.sin(needle + jt(0.15)) * 20, 238 - Math.cos(needle) * 20, 0.8); pen(MUTE, 0.3); }
     pc(232, 228, 7, 2); pc(272, 228, 7, 2); pc(312, 228, 7, 2);
